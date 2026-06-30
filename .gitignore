@@ -1,0 +1,15 @@
+# Wolfram Language
+*.mx
+*.m~
+*.wl~
+*.nb~
+FrontEnd/
+
+# Generated outputs
+*.gif
+*.mp4
+*.png
+
+# OS files
+.DS_Store
+Thumbs.db
