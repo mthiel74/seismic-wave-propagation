@@ -28,6 +28,11 @@
 (*  earthquakes — a question at the heart of nuclear test-ban            *)
 (*  verification.                                                         *)
 (*                                                                        *)
+(*  This file is a FUNCTION LIBRARY: Get["SeismicWavePropagation.wl"]    *)
+(*  loads all data definitions, computes PREM travel times, and defines  *)
+(*  named functions for every visualization. No output is produced       *)
+(*  on import.                                                            *)
+(*                                                                        *)
 (*  The approach:                                                         *)
 (*   1. Catalog six earthquakes spanning M6.0 to M9.5                    *)
 (*   2. Implement the PREM velocity model from tabulated data            *)
@@ -37,6 +42,7 @@
 (*   6. Model the 2025 Myanmar supershear rupture                        *)
 (*   7. Compare earthquakes with the 2017 DPRK nuclear test              *)
 (*   8. Derive the mb-Ms discrimination used for test-ban verification   *)
+(*   9. Ground Motion Visualization (IRIS-style GMV) from scratch        *)
 (* ====================================================================== *)
 
 
@@ -136,55 +142,6 @@ nuclearTest = <|"Name" -> "2017 DPRK Nuclear Test",
 
 (* Combined event list for comparative analysis *)
 allEvents = Join[earthquakeCatalog, {nuclearTest}];
-
-
-(* ---- Display the catalog ---- *)
-
-Print[Style["EARTHQUAKE AND NUCLEAR TEST CATALOG", Bold, 16]];
-Print[""];
-
-Grid[
-  Prepend[
-    Table[{eq["ShortName"],
-      If[KeyExistsQ[eq, "Magnitude"], eq["Magnitude"], eq["MagnitudeBody"]],
-      If[KeyExistsQ[eq, "Mechanism"], eq["Mechanism"], "Explosion"],
-      eq["Depth"],
-      If[KeyExistsQ[eq, "FaultName"], eq["FaultName"], eq["TestSite"]]},
-      {eq, allEvents}],
-    {"Event", "Mag", "Type", "Depth (km)", "Source"}
-  ],
-  Frame -> All,
-  Background -> {None, {LightBlue, None}},
-  Alignment -> {Left, Center},
-  Spacings -> {2, 1}
-]
-
-
-(* ---- Global map of all events ---- *)
-
-eventMap = GeoGraphics[{
-  (* Earthquake epicenters *)
-  Table[
-    With[{eq = earthquakeCatalog[[i]]},
-      {Directive[Red, PointSize[0.005 + 0.003 (eq["Magnitude"] - 6)]],
-       Point[eq["Position"]],
-       Text[Style[eq["ShortName"], 8, Bold],
-         eq["Position"], {-1.5, -1}]}
-    ],
-    {i, Length[earthquakeCatalog]}
-  ],
-
-  (* Nuclear test site *)
-  {Directive[Black, PointSize[0.012]],
-   Point[nuclearTest["Position"]],
-   Text[Style[nuclearTest["ShortName"], 8, Bold, Darker[Red]],
-     nuclearTest["Position"], {-1.5, -1}]}
-},
-GeoRange -> "World",
-GeoProjection -> "Robinson",
-GeoBackground -> GeoStyling["ReliefMap"],
-PlotLabel -> Style["Events Studied: 6 Earthquakes + 1 Nuclear Test", Bold, 14],
-ImageSize -> 800]
 
 
 (* ====================================================================== *)
@@ -416,58 +373,57 @@ rhoPREM[r_?NumericQ] := Piecewise[{
 }];
 
 
-(* ---- Visualize the PREM Model ---- *)
+(* ---- PREM Visualization Functions ---- *)
 
-premPlotP = Plot[vpPREM[r], {r, 0, rEarth},
-  PlotStyle -> {Blue, Thick},
-  PlotRange -> {0, 14.5},
-  ExclusionsStyle -> Dashed,
-  AxesLabel -> {"Radius (km)", "Velocity (km/s)"},
-  PlotLabel -> Style["PREM P-wave Velocity", Bold],
-  Filling -> Axis,
-  FillingStyle -> Directive[Blue, Opacity[0.1]],
-  GridLines -> {{1221.5, 3480, 5701, 5971, 6151, 6346.6}, Automatic},
-  GridLinesStyle -> Directive[Gray, Dashed],
-  Epilog -> {
-    Text[Style["Inner\nCore", 8], {600, 12}],
-    Text[Style["Outer Core", 8], {2400, 4}],
-    Text[Style["Lower Mantle", 8], {4600, 8}],
-    Text[Style["UM", 8], {5850, 6}],
-    Text[Style["Crust", 8], {6360, 3}]
-  },
-  ImageSize -> 700];
+plotPREMProfiles[] := Module[{premPlotP, premPlotS, premPlotRho},
+  premPlotP = Plot[vpPREM[r], {r, 0, rEarth},
+    PlotStyle -> {Blue, Thick},
+    PlotRange -> {0, 14.5},
+    ExclusionsStyle -> Dashed,
+    AxesLabel -> {"Radius (km)", "Velocity (km/s)"},
+    PlotLabel -> Style["PREM P-wave Velocity", Bold],
+    Filling -> Axis,
+    FillingStyle -> Directive[Blue, Opacity[0.1]],
+    GridLines -> {{1221.5, 3480, 5701, 5971, 6151, 6346.6}, Automatic},
+    GridLinesStyle -> Directive[Gray, Dashed],
+    Epilog -> {
+      Text[Style["Inner\nCore", 8], {600, 12}],
+      Text[Style["Outer Core", 8], {2400, 4}],
+      Text[Style["Lower Mantle", 8], {4600, 8}],
+      Text[Style["UM", 8], {5850, 6}],
+      Text[Style["Crust", 8], {6360, 3}]
+    },
+    ImageSize -> 700];
 
-premPlotS = Plot[vsPREM[r], {r, 0, rEarth},
-  PlotStyle -> {Red, Thick},
-  PlotRange -> {0, 8},
-  ExclusionsStyle -> Dashed,
-  AxesLabel -> {"Radius (km)", "Velocity (km/s)"},
-  PlotLabel -> Style["PREM S-wave Velocity", Bold],
-  Filling -> Axis,
-  FillingStyle -> Directive[Red, Opacity[0.1]],
-  GridLines -> {{1221.5, 3480, 5701, 5971, 6151, 6346.6}, Automatic},
-  GridLinesStyle -> Directive[Gray, Dashed],
-  Epilog -> {Text[Style["S = 0\n(liquid)", 8, Red], {2400, 2}]},
-  ImageSize -> 700];
+  premPlotS = Plot[vsPREM[r], {r, 0, rEarth},
+    PlotStyle -> {Red, Thick},
+    PlotRange -> {0, 8},
+    ExclusionsStyle -> Dashed,
+    AxesLabel -> {"Radius (km)", "Velocity (km/s)"},
+    PlotLabel -> Style["PREM S-wave Velocity", Bold],
+    Filling -> Axis,
+    FillingStyle -> Directive[Red, Opacity[0.1]],
+    GridLines -> {{1221.5, 3480, 5701, 5971, 6151, 6346.6}, Automatic},
+    GridLinesStyle -> Directive[Gray, Dashed],
+    Epilog -> {Text[Style["S = 0\n(liquid)", 8, Red], {2400, 2}]},
+    ImageSize -> 700];
 
-premPlotRho = Plot[rhoPREM[r], {r, 0, rEarth},
-  PlotStyle -> {Darker[Green], Thick},
-  PlotRange -> {0, 14},
-  ExclusionsStyle -> Dashed,
-  AxesLabel -> {"Radius (km)", "Density (g/cm\[Superscript]3)"},
-  PlotLabel -> Style["PREM Density", Bold],
-  Filling -> Axis,
-  FillingStyle -> Directive[Green, Opacity[0.1]],
-  GridLines -> {{1221.5, 3480, 5701, 5971, 6151, 6346.6}, Automatic},
-  GridLinesStyle -> Directive[Gray, Dashed],
-  ImageSize -> 700];
+  premPlotRho = Plot[rhoPREM[r], {r, 0, rEarth},
+    PlotStyle -> {Darker[Green], Thick},
+    PlotRange -> {0, 14},
+    ExclusionsStyle -> Dashed,
+    AxesLabel -> {"Radius (km)", "Density (g/cm\[Superscript]3)"},
+    PlotLabel -> Style["PREM Density", Bold],
+    Filling -> Axis,
+    FillingStyle -> Directive[Green, Opacity[0.1]],
+    GridLines -> {{1221.5, 3480, 5701, 5971, 6151, 6346.6}, Automatic},
+    GridLinesStyle -> Directive[Gray, Dashed],
+    ImageSize -> 700];
 
-GraphicsColumn[{premPlotP, premPlotS, premPlotRho}, Spacings -> 0]
+  GraphicsColumn[{premPlotP, premPlotS, premPlotRho}, Spacings -> 0]
+]
 
-
-(* ---- Cross-section visualization ---- *)
-
-premCrossSection = Show[
+plotPREMCrossSection[] := Show[
   ParametricPlot[
     {r Cos[\[Theta]], r Sin[\[Theta]]},
     {r, 0, rEarth}, {\[Theta], 0, 2 Pi},
@@ -604,7 +560,7 @@ computeRayPath[p_?NumericQ, vFunc_] := Module[
 
 (* ---- Compute P-wave travel times ---- *)
 
-Print["Computing P-wave travel times... (1-2 minutes)"];
+PrintTemporary["Computing P-wave travel times..."];
 
 pMinP = 3480.0 / vpPREM[3480.01] + 2.0;
 pMaxP = 6346.6 / vpPREM[6346.59] - 2.0;
@@ -624,15 +580,10 @@ travelTimeDataP = SortBy[
     NumericQ[#[[1]]] && NumericQ[#[[2]]] && #[[1]] > 0 &
   ], First];
 
-Print[StringForm["Computed `` P-wave travel times (``-`` degrees).",
-  Length[travelTimeDataP],
-  Round[Min[travelTimeDataP[[All, 1]]], 0.1],
-  Round[Max[travelTimeDataP[[All, 1]]], 0.1]]];
-
 
 (* ---- S-wave travel times ---- *)
 
-Print["Computing S-wave travel times..."];
+PrintTemporary["Computing S-wave travel times..."];
 
 pMinS = 3480.0 / vsPREM[3480.01] + 2.0;
 pMaxS = 6346.6 / vsPREM[6346.59] - 2.0;
@@ -652,8 +603,6 @@ travelTimeDataS = SortBy[
     NumericQ[#[[1]]] && NumericQ[#[[2]]] && #[[1]] > 0 &
   ], First];
 
-Print[StringForm["Computed `` S-wave travel times.", Length[travelTimeDataS]]];
-
 
 (* ---- Surface wave travel times ---- *)
 
@@ -663,9 +612,9 @@ vLove = 4.3;     (* km/s *)
 travelTimeSurf[deltaDeg_, v_] := (deltaDeg * Pi / 180) * rEarth / v;
 
 
-(* ---- Travel-Time Curve Plot ---- *)
+(* ---- Travel-Time Curve Plot Function ---- *)
 
-travelTimePlot = Show[
+plotTravelTimeCurves[] := Show[
   ListPlot[travelTimeDataP,
     PlotStyle -> {Blue, PointSize[Small]},
     PlotMarkers -> {"\[FilledCircle]", 5}],
@@ -732,7 +681,7 @@ computeRayXY[p_?NumericQ, vFunc_, nPoints_: 200] := Module[
   points
 ];
 
-rayPathPlot = Show[
+plotRayPaths[] := Show[
   Graphics[{
     {FaceForm[Lighter[Yellow, 0.8]], EdgeForm[Gray], Disk[{0, 0}, rEarth]},
     {FaceForm[Lighter[Orange, 0.5]], EdgeForm[Gray], Disk[{0, 0}, 5701]},
@@ -778,7 +727,7 @@ rayPathPlot = Show[
      E_nuc = Y (kilotons) x 4.184 x 10^12 J/kt
 
    The seismic coupling efficiency for underground nuclear tests is
-   typically 1-7% — most energy goes into heating/melting rock and
+   typically 1-7% -- most energy goes into heating/melting rock and
    creating the cavity. But we compare total energies since that is
    the more meaningful physical quantity.
 *)
@@ -802,11 +751,50 @@ earthquakeEnergies = Table[
 nuclearEnergy = nuclearTest["YieldKt"] * ktTNT; (* 1.046 x 10^15 J *)
 nuclearEnergyMt = nuclearTest["YieldKt"] / 1000; (* 0.25 Mt *)
 
-(* Energy comparison table *)
-Print[Style["\nENERGY COMPARISON: EARTHQUAKES vs. NUCLEAR TEST", Bold, 14]];
-Print[""];
 
-Grid[
+(* ---- Display Functions: Catalog and Energy ---- *)
+
+displayCatalog[] := Grid[
+  Prepend[
+    Table[{eq["ShortName"],
+      If[KeyExistsQ[eq, "Magnitude"], eq["Magnitude"], eq["MagnitudeBody"]],
+      If[KeyExistsQ[eq, "Mechanism"], eq["Mechanism"], "Explosion"],
+      eq["Depth"],
+      If[KeyExistsQ[eq, "FaultName"], eq["FaultName"], eq["TestSite"]]},
+      {eq, allEvents}],
+    {"Event", "Mag", "Type", "Depth (km)", "Source"}
+  ],
+  Frame -> All,
+  Background -> {None, {LightBlue, None}},
+  Alignment -> {Left, Center},
+  Spacings -> {2, 1}
+]
+
+plotEventMap[] := GeoGraphics[{
+  (* Earthquake epicenters *)
+  Table[
+    With[{eq = earthquakeCatalog[[i]]},
+      {Directive[Red, PointSize[0.005 + 0.003 (eq["Magnitude"] - 6)]],
+       Point[eq["Position"]],
+       Text[Style[eq["ShortName"], 8, Bold],
+         eq["Position"], {-1.5, -1}]}
+    ],
+    {i, Length[earthquakeCatalog]}
+  ],
+
+  (* Nuclear test site *)
+  {Directive[Black, PointSize[0.012]],
+   Point[nuclearTest["Position"]],
+   Text[Style[nuclearTest["ShortName"], 8, Bold, Darker[Red]],
+     nuclearTest["Position"], {-1.5, -1}]}
+},
+GeoRange -> "World",
+GeoProjection -> "Robinson",
+GeoBackground -> GeoStyling["ReliefMap"],
+PlotLabel -> Style["Events Studied: 6 Earthquakes + 1 Nuclear Test", Bold, 14],
+ImageSize -> 800]
+
+displayEnergyComparison[] := Grid[
   Prepend[
     Append[
       Table[{
@@ -831,21 +819,7 @@ Grid[
   Alignment -> Center, Spacings -> {2, 1}
 ]
 
-Print[""];
-Print[Style[
-  StringForm["The 1960 Chile M9.5 released `` times more energy than \
-the largest North Korean nuclear test (250 kt).",
-    Round[seismicEnergy[9.5] / nuclearEnergy]],
-  Bold, 12]];
-
-(*
-   Let's visualize this on a logarithmic scale. The energy range spans
-   4 orders of magnitude — from the DPRK nuke at 10^15 J to Chile at
-   10^19 J. This is one of the most striking ways to appreciate how
-   enormous great earthquakes truly are.
-*)
-
-energyBarChart = BarChart[
+plotEnergyBarChart[] := BarChart[
   Log10 /@ Append[
     seismicEnergy /@ earthquakeCatalog[[All, "Magnitude"]],
     nuclearEnergy
@@ -874,7 +848,7 @@ energyBarChart = BarChart[
 
 (*
    Now we animate wavefronts for each event. The travel-time curves
-   computed in Section 4 are UNIVERSAL — they depend only on the
+   computed in Section 4 are UNIVERSAL -- they depend only on the
    Earth's velocity structure, not on the specific earthquake.
 
    What varies between events:
@@ -910,7 +884,7 @@ Module[{pDist, sDist, rDist, proj},
     projection];
 
   GeoGraphics[{
-    (* P-wave front (blue) — present for both earthquakes and explosions *)
+    (* P-wave front (blue) -- present for both earthquakes and explosions *)
     If[pDist > 0 && pDist < 170,
       {Directive[Blue, Thick, Opacity[0.8]],
        GeoCircle[epicenter,
@@ -924,14 +898,14 @@ Module[{pDist, sDist, rDist, proj},
          Quantity[pDist * rEarth * Pi / 180, "Kilometers"]]},
       {}],
 
-    (* S-wave front (red) — ONLY for earthquakes *)
+    (* S-wave front (red) -- ONLY for earthquakes *)
     If[!isNuclear && sDist > 0 && sDist < 170,
       {Directive[Red, Thick, Opacity[0.8]],
        GeoCircle[epicenter,
          Quantity[sDist * rEarth * Pi / 180, "Kilometers"]]},
       {}],
 
-    (* Rayleigh surface wave (orange, dashed) — ONLY for earthquakes *)
+    (* Rayleigh surface wave (orange, dashed) -- ONLY for earthquakes *)
     If[!isNuclear && rDist > 0 && rDist < 175,
       {Directive[Orange, Thick, Dashed, Opacity[0.8]],
        GeoCircle[epicenter,
@@ -973,7 +947,7 @@ eventIsNuclear = Append[
   True
 ];
 
-multiEventAnimation = Manipulate[
+wavefrontManipulate[] := Manipulate[
   makeWavefrontFrame[
     eventPositions[[eventIdx]], t,
     eventIsNuclear[[eventIdx]],
@@ -989,16 +963,14 @@ multiEventAnimation = Manipulate[
 ]
 
 
-(* ---- Comparative Snapshot Grid: all events at t = 300 s ---- *)
+(* ---- Comparative Snapshot Grid ---- *)
 
-Print[Style["\nALL EVENTS AT t = 5 MINUTES", Bold, 14]];
-
-snapshotGrid = GraphicsGrid[
+wavefrontSnapshotGrid[t_: 300] := GraphicsGrid[
   Partition[
     Table[
       With[{eq = allEvents[[i]]},
         makeWavefrontFrame[
-          eq["Position"], 300,
+          eq["Position"], t,
           KeyExistsQ[eq, "YieldKt"],
           eq["ShortName"],
           "Orthographic"
@@ -1006,26 +978,20 @@ snapshotGrid = GraphicsGrid[
       ],
       {i, Length[allEvents]}
     ],
-    UpTo[3]  (* 3 columns *)
+    UpTo[3]
   ],
   Spacings -> {5, 5},
-  PlotLabel -> Style["Wavefront Comparison at t = 5 min: \
-P (blue), S (red), Rayleigh (orange dashed)", Bold, 12]
+  PlotLabel -> Style[StringForm[
+    "Wavefront Comparison at t = `` s: \
+P (blue), S (red), Rayleigh (orange dashed)", t], Bold, 12]
 ]
 
 
 (* ---- Regional Mediterranean View for Crete Event ---- *)
 
-(*
-   The 2025 Crete earthquake, while moderate (M6.0), produced
-   striking visualizations across the Mediterranean seismic network.
-   Here we zoom into the regional scale where the wavefronts sweep
-   across Southern Europe and North Africa.
-*)
-
 creteEpicenter = earthquakeCatalog[[3]]["Position"]; (* Crete *)
 
-creteRegionalAnimation = Manipulate[
+creteRegionalManipulate[] := Manipulate[
   Module[{pDist, sDist, rDist},
     pDist = If[tMinP <= t <= tMaxP, Quiet@deltaOfTP[t], 0];
     sDist = If[tMinS <= t <= tMaxS, Quiet@deltaOfTS[t], 0];
@@ -1043,11 +1009,11 @@ creteRegionalAnimation = Manipulate[
           Quantity[rDist * rEarth * Pi / 180, "Kilometers"]]}, {}],
       {Red, PointSize[0.015], Point[creteEpicenter]}
     },
-    GeoRange -> {{20, 55}, {-10, 45}}, (* Mediterranean region *)
+    GeoRange -> {{20, 55}, {-10, 45}},
     GeoProjection -> "Mercator",
     GeoBackground -> GeoStyling["ReliefMap"],
     PlotLabel -> Style[
-      StringForm["Crete M6.0 — Mediterranean View | t = `` s", Round[t]],
+      StringForm["Crete M6.0 -- Mediterranean View | t = `` s", Round[t]],
       Bold, 12],
     ImageSize -> 700, AspectRatio -> 0.5]
   ],
@@ -1060,7 +1026,7 @@ creteRegionalAnimation = Manipulate[
 
 (* ---- Equirectangular Animation (flat world map) ---- *)
 
-flatMapAnimation = Manipulate[
+flatMapManipulate[] := Manipulate[
   Module[{center, isNuke},
     center = eventPositions[[eventIdx]];
     isNuke = eventIsNuclear[[eventIdx]];
@@ -1090,7 +1056,7 @@ flatMapAnimation = Manipulate[
    Normally:    v_rupture < 0.92 v_S   (sub-Rayleigh)
    Myanmar:     v_rupture ~ 5.5 km/s > v_S ~ 3.5 km/s
 
-   This creates a MACH CONE — the seismic analogue of a sonic boom:
+   This creates a MACH CONE -- the seismic analogue of a sonic boom:
 
      sin(\[Theta]_Mach) = v_S / v_rupture
 
@@ -1107,13 +1073,7 @@ vShearCrust = 3.5;
 machAngle = ArcSin[vShearCrust / vRupture] * 180 / Pi;
 machNumber = vRupture / vShearCrust;
 
-Print[Style["\nSUPERSHEAR ANALYSIS", Bold, 14]];
-Print[StringForm["Rupture velocity: `` km/s", vRupture]];
-Print[StringForm["Shear wave speed: `` km/s", vShearCrust]];
-Print[StringForm["Mach number: ``", Round[machNumber, 0.01]]];
-Print[StringForm["Mach angle: ``\[Degree]", Round[machAngle, 0.1]]];
-
-machConePlot = Graphics[{
+plotMachCone[] := Graphics[{
   {Gray, Thick, Line[{{0, 0}, {10, 0}}]},
   {Gray, Thick, Arrowheads[0.03], Arrow[{{8, 0}, {10, 0}}]},
   Text[Style["Rupture direction\n(v = 5.5 km/s)", 10], {5, -0.5}],
@@ -1192,7 +1152,7 @@ Epilog -> {
 
      mb = 4.45 + 0.75 log10(Y)     (Y in kilotons)
 
-   This assumes full coupling — the cavity is small relative to the
+   This assumes full coupling -- the cavity is small relative to the
    elastic radius. Decoupling (detonating in a pre-existing cavity)
    can reduce mb by 1-2 units, but this requires enormous cavities
    for large yields and is detectable by other means.
@@ -1201,7 +1161,7 @@ Epilog -> {
 mbFromYield[yieldKt_] := 4.45 + 0.75 Log10[yieldKt];
 yieldFromMb[mb_] := 10^((mb - 4.45) / 0.75);
 
-(* North Korea nuclear test series — a unique calibration dataset *)
+(* North Korea nuclear test series -- a unique calibration dataset *)
 nkTests = {
   <|"Year" -> 2006, "mb" -> 4.1, "Ms" -> 2.9, "Yield" -> 1,
     "Notes" -> "First test, likely fizzle"|>,
@@ -1217,8 +1177,7 @@ nkTests = {
     "Notes" -> "Thermonuclear, mountain collapse"|>
 };
 
-(* Plot: mb vs yield with Murphy formula *)
-yieldMbPlot = Show[
+plotYieldMbRelation[] := Show[
   (* NK data points *)
   ListPlot[
     {#["Yield"], #["mb"]} & /@ nkTests,
@@ -1250,9 +1209,7 @@ yieldMbPlot = Show[
   ImageSize -> 700, AspectRatio -> 0.5
 ]
 
-Print[""];
-Print["Yield predictions from the mb formula:"];
-Grid[
+displayNKTestSeries[] := Grid[
   Prepend[
     Table[{nk["Year"], nk["mb"], nk["Yield"],
       Round[yieldFromMb[nk["mb"]], 0.1]},
@@ -1265,43 +1222,33 @@ Grid[
 ]
 
 
-(* ---- Nuclear Test Wavefront Animation ---- *)
+(* ---- Earthquake vs Nuclear Comparison ---- *)
 
-(*
-   A nuclear explosion produces wavefronts that look very different
-   from an earthquake:
-   - Only P-waves propagate efficiently (isotropic compression)
-   - S-waves are much weaker (no shear in the source)
-   - Surface waves are much weaker (shallow, isotropic source)
-   - No radiation pattern variation with azimuth
+plotEarthquakeVsNuclearSnapshots[] := Module[{comparisonSnapshots},
+  comparisonSnapshots = Table[
+    GraphicsRow[{
+      (* Earthquake *)
+      makeWavefrontFrame[
+        earthquakeCatalog[[1]]["Position"], t, False,
+        StringForm["Myanmar M7.7 (earthquake) t=``s", t],
+        "Orthographic"
+      ] /. (ImageSize -> _) -> (ImageSize -> 400),
+      (* Nuclear test *)
+      makeWavefrontFrame[
+        nuclearTest["Position"], t, True,
+        StringForm["DPRK mb6.3 (nuclear) t=``s", t],
+        "Orthographic"
+      ] /. (ImageSize -> _) -> (ImageSize -> 400)
+    }, Spacings -> 1],
+    {t, {120, 300, 600}}
+  ];
 
-   Let's compare Myanmar M7.7 (earthquake) side by side with the
-   DPRK nuclear test at the same time stamps.
-*)
-
-comparisonSnapshots = Table[
-  GraphicsRow[{
-    (* Earthquake *)
-    makeWavefrontFrame[
-      earthquakeCatalog[[1]]["Position"], t, False,
-      StringForm["Myanmar M7.7 (earthquake) t=``s", t],
-      "Orthographic"
-    ] /. (ImageSize -> _) -> (ImageSize -> 400),
-    (* Nuclear test *)
-    makeWavefrontFrame[
-      nuclearTest["Position"], t, True,
-      StringForm["DPRK mb6.3 (nuclear) t=``s", t],
-      "Orthographic"
-    ] /. (ImageSize -> _) -> (ImageSize -> 400)
-  }, Spacings -> 1],
-  {t, {120, 300, 600}}
-];
-
-GraphicsColumn[comparisonSnapshots, Spacings -> 5,
-  PlotLabel -> Style[
-    "Earthquake vs. Nuclear Test: The explosion produces \
+  GraphicsColumn[comparisonSnapshots, Spacings -> 5,
+    PlotLabel -> Style[
+      "Earthquake vs. Nuclear Test: The explosion produces \
 ONLY P-waves (blue)\nNo S-wave (red) or surface wave (orange) fronts",
-    Bold, 12]]
+      Bold, 12]]
+]
 
 
 (* ====================================================================== *)
@@ -1331,9 +1278,6 @@ ONLY P-waves (blue)\nNo S-wave (red) or surface wave (orange) fronts",
 *)
 
 (* Earthquake data: {mb, Ms} from our catalog *)
-(* Note: for very large earthquakes, mb saturates around 6.5-7.0
-   while Ms continues to increase. This creates the characteristic
-   curved mb-Ms relationship for earthquakes. *)
 eqMbMs = {
   {5.5, 5.8},    (* Crete 2025 *)
   {6.2, 7.3},    (* Venezuela 2026 *)
@@ -1347,7 +1291,6 @@ eqMbMs = {
 nukeMbMs = Table[{nk["mb"], nk["Ms"]}, {nk, nkTests}];
 
 (* Additional reference data: historical nuclear tests *)
-(* These are approximate but illustrate the systematic offset *)
 refNukeMbMs = {
   {5.9, 3.7},    (* Semipalatinsk tests *)
   {5.5, 3.5},
@@ -1356,7 +1299,7 @@ refNukeMbMs = {
   {6.1, 3.9}     (* Novaya Zemlya *)
 };
 
-mbMsPlot = Show[
+plotMbMsDiscrimination[] := Show[
   (* Earthquake population *)
   ListPlot[eqMbMs,
     PlotStyle -> {Blue, PointSize[Large]},
@@ -1409,31 +1352,7 @@ mbMsPlot = Show[
   ImageSize -> 700, AspectRatio -> 0.7
 ]
 
-(*
-   The plot shows clear separation between the two populations.
-   The DPRK tests (red squares) cluster well below the earthquake
-   population — for a given mb, their Ms is 1.5-2.5 units lower.
-
-   This is a direct consequence of the source physics:
-   - Earthquakes are SHEAR failures on fault planes, efficiently
-     exciting both body waves and surface waves.
-   - Explosions are COMPRESSIVE point sources at very shallow depth,
-     exciting strong P-waves but coupling poorly to surface waves.
-
-   The discrimination holds even for the largest DPRK test (mb 6.3,
-   Ms 4.2), which would be expected to have Ms > 6 if it were a
-   natural earthquake.
-*)
-
-
-(* ---- Source Mechanism Diagram ---- *)
-
-(*
-   Let's visualize WHY the discrimination works by showing the
-   fundamental difference in radiation patterns.
-*)
-
-sourceMechanismPlot = GraphicsRow[{
+plotSourceMechanisms[] := GraphicsRow[{
   (* Earthquake: double-couple radiation pattern *)
   Graphics[{
     (* P-wave radiation lobes *)
@@ -1496,9 +1415,6 @@ PlotLabel -> Style[
    teleseismic P-wave arrivals.
 *)
 
-Print[Style["\nMODEL VERIFICATION: PREM vs. IASP91", Bold, 14]];
-Print[""];
-
 benchmarkDistances = {20, 30, 45, 60, 75, 90};
 iasp91Times = {289, 370, 489, 608, 720, 781};
 
@@ -1515,7 +1431,7 @@ residuals = Table[
   {i, Length[benchmarkDistances]}
 ];
 
-Grid[
+displayVerificationTable[] := Grid[
   Prepend[
     Table[{benchmarkDistances[[i]], iasp91Times[[i]],
       modelTimes[[i]], residuals[[i]]},
@@ -1542,9 +1458,6 @@ cities = {
 };
 
 (* Compute P-wave arrival times from each earthquake to each city *)
-Print[""];
-Print[Style["P-WAVE ARRIVAL TIMES AT MAJOR CITIES", Bold, 14]];
-
 cityArrivalTable = Table[
   Module[{dist, tp},
     dist = QuantityMagnitude[
@@ -1558,7 +1471,7 @@ cityArrivalTable = Table[
   {eq, earthquakeCatalog}, {city, cities}
 ];
 
-Grid[
+displayCityArrivalTimes[] := Grid[
   Prepend[
     Table[
       Prepend[cityArrivalTable[[i]], earthquakeCatalog[[i]]["ShortName"]],
@@ -1588,7 +1501,7 @@ Grid[
    2. ENERGY SCALING spans over 5 orders of magnitude across our
       event catalog. The 1960 Chile M9.5 released ~10,700 times more
       seismic energy than the 250 kt DPRK nuclear test. The moderate
-      Crete M6.0 released about 15 kt equivalent — comparable to
+      Crete M6.0 released about 15 kt equivalent -- comparable to
       Hiroshima, but 1/17 of the DPRK hydrogen bomb.
 
    3. SUPERSHEAR RUPTURE in the Myanmar 2025 earthquake created a
@@ -1599,13 +1512,13 @@ Grid[
       through the mb-Ms relationship. Nuclear explosions produce
       anomalously weak surface waves relative to their body-wave
       magnitude, due to their isotropic, shallow source mechanism.
-      The DPRK 2017 test had mb 6.3 but Ms only ~4.2 — a natural
+      The DPRK 2017 test had mb 6.3 but Ms only ~4.2 -- a natural
       earthquake of the same mb would have Ms > 6.
 
    5. The WAVEFRONT ANIMATIONS show how seismic waves sweep across
       the globe at different speeds: P-waves arrive first (fastest),
       followed by S-waves, then surface waves. For nuclear explosions,
-      only the P-wave front is visible — a striking visual
+      only the P-wave front is visible -- a striking visual
       confirmation of the source physics.
 
    References:
@@ -1619,53 +1532,440 @@ Grid[
 
 
 (* ====================================================================== *)
-(*  SECTION 13: EXPORT                                                    *)
+(*  SECTION 13: EXPORT FUNCTIONS                                          *)
 (* ====================================================================== *)
 
 (*
    Export animation frames for selected events.
-   The following generates frames at 15-second intervals.
+   These functions generate frames at specified intervals.
 *)
 
-Print["\nGenerating export frames for Myanmar M7.7..."];
-
-animFrames = Table[
-  makeWavefrontFrame[
-    earthquakeCatalog[[1]]["Position"], t, False,
-    "Myanmar M7.7",
-    "Equirectangular"
-  ] /. (ImageSize -> _) -> (ImageSize -> 800),
-  {t, 0, 1800, 15}
-];
-
-Export["SeismicWavePropagation_Myanmar.gif", animFrames,
-  "DisplayDurations" -> 0.1,
-  AnimationRepetitions -> Infinity];
-
-Print["Saved: SeismicWavePropagation_Myanmar.gif"];
-
-(* Export nuclear comparison *)
-Print["Generating nuclear comparison frames..."];
-
-nukeCompFrames = Table[
-  GraphicsRow[{
+exportWavefrontGIF[eventIdx_Integer: 1, filename_String: "SeismicWavePropagation.gif",
+    tMax_: 1800, dt_: 15] := Module[{animFrames, eq, isNuke},
+  eq = allEvents[[eventIdx]];
+  isNuke = KeyExistsQ[eq, "YieldKt"];
+  PrintTemporary[StringForm["Generating export frames for ``...", eq["ShortName"]]];
+  animFrames = Table[
     makeWavefrontFrame[
-      earthquakeCatalog[[1]]["Position"], t, False,
-      "Myanmar M7.7 (earthquake)", "Equirectangular"
-    ] /. (ImageSize -> _) -> (ImageSize -> 500),
-    makeWavefrontFrame[
-      nuclearTest["Position"], t, True,
-      "DPRK 250kt (nuclear)", "Equirectangular"
-    ] /. (ImageSize -> _) -> (ImageSize -> 500)
-  }],
-  {t, 0, 1200, 20}
-];
+      eq["Position"], t, isNuke,
+      eq["ShortName"],
+      "Equirectangular"
+    ] /. (ImageSize -> _) -> (ImageSize -> 800),
+    {t, 0, tMax, dt}
+  ];
+  Export[filename, animFrames,
+    "DisplayDurations" -> 0.1,
+    AnimationRepetitions -> Infinity];
+  PrintTemporary[StringForm["Saved: ``", filename]];
+  filename
+]
 
-Export["EarthquakeVsNuclear.gif", nukeCompFrames,
-  "DisplayDurations" -> 0.15,
-  AnimationRepetitions -> Infinity];
+exportComparisonGIF[filename_String: "EarthquakeVsNuclear.gif",
+    tMax_: 1200, dt_: 20] := Module[{nukeCompFrames},
+  PrintTemporary["Generating nuclear comparison frames..."];
+  nukeCompFrames = Table[
+    GraphicsRow[{
+      makeWavefrontFrame[
+        earthquakeCatalog[[1]]["Position"], t, False,
+        "Myanmar M7.7 (earthquake)", "Equirectangular"
+      ] /. (ImageSize -> _) -> (ImageSize -> 500),
+      makeWavefrontFrame[
+        nuclearTest["Position"], t, True,
+        "DPRK 250kt (nuclear)", "Equirectangular"
+      ] /. (ImageSize -> _) -> (ImageSize -> 500)
+    }],
+    {t, 0, tMax, dt}
+  ];
+  Export[filename, nukeCompFrames,
+    "DisplayDurations" -> 0.15,
+    AnimationRepetitions -> Infinity];
+  PrintTemporary[StringForm["Saved: ``", filename]];
+  filename
+]
 
-Print["Saved: EarthquakeVsNuclear.gif"];
-Print[""];
-Print[Style["Project complete. Open in Mathematica, evaluate all \
-cells (Shift+Enter), and publish to community.wolfram.com.", Bold, 12]];
+
+(* ====================================================================== *)
+(*  SECTION 14: GMV -- GROUND MOTION VISUALIZATION                       *)
+(* ====================================================================== *)
+
+(*
+   Ground Motion Visualizations (GMVs) show the passage of seismic
+   waves across a dense station network. This section implements an
+   IRIS-style GMV from scratch:
+
+   - Dense synthetic station network across Europe (~2000 stations)
+   - Synthetic seismograms using Ricker wavelets for P, S, Rayleigh
+   - Per-station normalization with configurable gain
+   - Station dots colored red (up) / blue (down) by vertical displacement
+   - Reference seismogram panel with phase labels
+   - Interactive Manipulate for time exploration
+
+   Translated from Python (make_gmv_v5.py) to pure Wolfram Language.
+*)
+
+
+(* ---- GMV Constants ---- *)
+
+$vpAvg = 10.0;      (* PREM path-averaged P velocity km/s *)
+$vsAvg = 5.5;       (* PREM path-averaged S velocity km/s *)
+$vRayleigh = 3.7;   (* Rayleigh wave group velocity km/s *)
+$gmvGain = 5;       (* IRIS default gain *)
+$simStart = 250;    (* GMV sim start time, s after origin *)
+$simEnd = 2800;     (* GMV sim end time *)
+
+
+(* ---- Ricker Wavelet ---- *)
+
+rickerWavelet[t_?NumericQ, f0_?NumericQ] :=
+  Module[{u = (Pi f0 t)^2}, (1 - 2 u) Exp[-u]]
+
+
+(* ---- Geodesic Distance in Degrees ---- *)
+
+geodesicDistanceDeg[lat1_?NumericQ, lon1_?NumericQ,
+    lat2_?NumericQ, lon2_?NumericQ] :=
+  Module[{lat1r, lon1r, lat2r, lon2r, dlat, dlon, a},
+    {lat1r, lon1r} = {lat1, lon1} Degree;
+    {lat2r, lon2r} = {lat2, lon2} Degree;
+    dlat = lat2r - lat1r;
+    dlon = lon2r - lon1r;
+    a = Sin[dlat/2]^2 + Cos[lat1r] Cos[lat2r] Sin[dlon/2]^2;
+    2 ArcSin[Sqrt[Clip[a, {0, 1}]]] / Degree
+  ]
+
+
+(* ---- Generate European Station Network ---- *)
+
+generateEuropeanStations[n_Integer: 2000] := Module[
+  {stations = {}, addStations},
+  SeedRandom[123];
+  addStations[nn_, latRange_, lonRange_] :=
+    Do[AppendTo[stations,
+      {RandomReal[latRange], RandomReal[lonRange]}], {nn}];
+
+  addStations[Round[n 0.20], {43, 55}, {-5, 17}];   (* W/C Europe *)
+  addStations[Round[n 0.15], {35, 48}, {6, 30}];    (* Italy/Balkans *)
+  addStations[Round[n 0.075], {36, 44}, {-10, 4}];  (* Iberia *)
+  addStations[Round[n 0.10], {55, 72}, {4, 32}];    (* Scandinavia *)
+  addStations[Round[n 0.075], {50, 60}, {-10, 2}];  (* British Isles *)
+  addStations[Round[n 0.175], {43, 58}, {14, 42}];  (* E Europe *)
+  addStations[Round[n 0.10], {35, 42}, {25, 45}];   (* Turkey *)
+  addStations[Round[n 0.10], {50, 68}, {30, 55}];   (* W Russia *)
+  addStations[Round[n 0.025], {30, 37}, {-5, 35}];  (* N Africa *)
+  addStations[Round[n 0.02], {63, 67}, {-25, -13}]; (* Iceland *)
+
+  (* Filter to extended viewport *)
+  Select[stations, -17 <= #[[2]] <= 57 && 28 <= #[[1]] <= 74 &]
+]
+
+
+(* ---- Synthetic Seismogram Using Ricker Wavelets ---- *)
+
+syntheticSeismogramGMV[distDeg_?NumericQ, tArray_List] :=
+  Module[{distKm, tp, ts, tr, geo, atten, scale},
+    distKm = distDeg Degree rEarth;
+    tp = distKm / $vpAvg;
+    ts = distKm / $vsAvg;
+    tr = distKm / $vRayleigh;
+    geo = 1 / Sqrt[Max[Sin[distDeg Degree], 0.01]];
+    atten = Exp[-0.0003 distDeg];
+    scale = geo atten;
+
+    Table[
+      Module[{amp = 0.0, dtP, dtS, dtR, tau, u, pulse},
+        (* P-wave *)
+        dtP = t - tp;
+        If[-80 < dtP < 500,
+          tau = dtP - 40;
+          u = (Pi 0.007 tau)^2;
+          amp += 0.35 scale (1 - 2 u) Exp[-u]
+        ];
+        (* S-wave *)
+        dtS = t - ts;
+        If[-100 < dtS < 600,
+          tau = dtS - 50;
+          u = (Pi 0.005 tau)^2;
+          amp += 0.6 scale (1 - 2 u) Exp[-u]
+        ];
+        (* Rayleigh *)
+        dtR = t - tr;
+        If[-150 < dtR < 1000,
+          tau = dtR - 80;
+          u = (Pi 0.003 tau)^2;
+          pulse = (1 - 2 u) Exp[-u];
+          If[tau > 200,
+            Module[{u2 = (Pi 0.004 (tau - 250))^2},
+              pulse += 0.4 (1 - 2 u2) Exp[-u2]
+            ]
+          ];
+          amp += 1.0 scale pulse
+        ];
+        amp
+      ],
+      {t, tArray}
+    ]
+  ]
+
+
+(* ---- Per-Station Normalization ---- *)
+
+normalizePerStation[seisMatrix_List, gain_: 5] :=
+  Module[{peaks, normed},
+    peaks = Max[Abs[#]] & /@ seisMatrix;
+    peaks = peaks /. x_ /; x < 1*^-10 -> 1.0;
+    normed = seisMatrix / peaks;
+    Clip[normed gain, {-1, 1}]
+  ]
+
+
+(* ---- Single GMV Frame ---- *)
+
+gmvFrame[t_?NumericQ, stations_List, normalizedSeis_List,
+    tArray_List, event_Association, refIdx_Integer] :=
+  Module[{frameIdx, vals, activeQ, quietPts, activePts, activeVals,
+    lonMin = -15, lonMax = 55, latMin = 30, latMax = 72},
+
+    frameIdx = First[Nearest[tArray -> "Index", t]];
+    vals = normalizedSeis[[All, frameIdx]];
+    activeQ = Abs[vals] > 0.05;
+
+    (* Build station graphics *)
+    quietPts = Pick[stations, Not /@ activeQ];
+    activePts = Pick[stations, activeQ];
+    activeVals = Pick[vals, activeQ];
+
+    GeoGraphics[{
+      (* Quiet stations *)
+      {White, EdgeForm[{Thin, GrayLevel[0.7]}], PointSize[0.003],
+       Point[GeoPosition /@ quietPts]},
+
+      (* Active stations *)
+      Table[
+        With[{v = activeVals[[i]], pos = GeoPosition[activePts[[i]]]},
+          {If[v > 0,
+            Blend[{White, Red}, Min[Abs[v], 1]],
+            Blend[{White, Blue}, Min[Abs[v], 1]]],
+           EdgeForm[{Thin, GrayLevel[0.2]}],
+           PointSize[0.003 + 0.007 Min[Abs[v], 1]],
+           Point[pos]}
+        ],
+        {i, Length[activePts]}
+      ],
+
+      (* Reference station marker *)
+      {Darker[Green], PointSize[0.006],
+       Point[GeoPosition[stations[[refIdx]]]]}
+    },
+    GeoRange -> {{latMin, latMax}, {lonMin, lonMax}},
+    GeoProjection -> "Equirectangular",
+    GeoBackground -> {
+      "CountryBorders",
+      "Land" -> RGBColor[0.96, 0.94, 0.88],
+      "Ocean" -> RGBColor[0.85, 0.90, 0.95]
+    },
+    PlotLabel -> Style[StringForm[
+      "GMV for `` | t = `` s after origin",
+      event["Name"], Round[t]], Bold, 12],
+    ImageSize -> 800
+    ]
+  ]
+
+
+(* ---- Reference Seismogram Plot ---- *)
+
+gmvReferenceSeismogram[tArray_List, refSeis_List, t_?NumericQ,
+    refDist_?NumericQ] :=
+  Module[{refMax, tpRef, tsRef, trRef, posS, negS},
+    refMax = Max[Abs[refSeis]];
+    tpRef = refDist Degree rEarth / $vpAvg;
+    tsRef = refDist Degree rEarth / $vsAvg;
+    trRef = refDist Degree rEarth / $vRayleigh;
+    posS = If[# >= 0, #, 0] & /@ refSeis;
+    negS = If[# < 0, #, 0] & /@ refSeis;
+
+    Show[
+      ListLinePlot[Transpose[{tArray, refSeis}],
+        PlotStyle -> {Black, Thin}],
+      ListLinePlot[{
+        Transpose[{tArray, posS}],
+        Transpose[{tArray, negS}]
+      }, PlotStyle -> None,
+        Filling -> {1 -> {Axis, Directive[Red, Opacity[0.15]]},
+                    2 -> {Axis, Directive[Blue, Opacity[0.15]]}}],
+      Graphics[{
+        {Red, Thick, Line[{{t, -1.3 refMax}, {t, 1.3 refMax}}]},
+        Table[
+          {Gray, Dashed, Thin,
+           Line[{{arr, -1.3 refMax}, {arr, 1.3 refMax}}],
+           Text[Style[lab, Bold, 8], {arr, 1.2 refMax}]},
+          {{arr, lab}, {{tpRef, "P"}, {tsRef, "S"}, {trRef, "R"}}}
+        ]
+      }],
+      PlotRange -> {{Min[tArray], Max[tArray]}, {-1.3 refMax, 1.3 refMax}},
+      AxesLabel -> {"Time after origin (s)", "Z"},
+      PlotLabel -> Style[StringForm[
+        "Reference Station: \[CapitalDelta] = ``\[Degree]",
+        Round[refDist, 0.1]], 10],
+      ImageSize -> {800, 150}
+    ]
+  ]
+
+
+(* ---- Interactive GMV with Seismogram ---- *)
+
+gmvManipulate[event_Association] := Module[
+  {stations, tArray, seismograms, normalizedSeis, distances,
+   refIdx, refDist, refSeis},
+
+  PrintTemporary["Generating station network..."];
+  stations = generateEuropeanStations[2000];
+  tArray = N @ Range[$simStart, $simEnd, 3.4];
+
+  PrintTemporary["Computing seismograms (this may take several minutes)..."];
+  distances = Table[
+    geodesicDistanceDeg[
+      event["Position"][[1, 1]], event["Position"][[1, 2]],
+      stations[[i, 1]], stations[[i, 2]]
+    ],
+    {i, Length[stations]}
+  ];
+
+  seismograms = Table[
+    syntheticSeismogramGMV[distances[[i]], tArray],
+    {i, Length[stations]}
+  ];
+
+  PrintTemporary["Normalizing..."];
+  normalizedSeis = normalizePerStation[seismograms, $gmvGain];
+  refIdx = First[Ordering[Abs[distances - 55], 1]];
+  refDist = distances[[refIdx]];
+  refSeis = seismograms[[refIdx]];
+
+  Manipulate[
+    Column[{
+      gmvFrame[t, stations, normalizedSeis, tArray, event, refIdx],
+      gmvReferenceSeismogram[tArray, refSeis, t, refDist]
+    }],
+    {{t, $simStart, "Time after origin (s)"},
+     $simStart, $simEnd, 1,
+     Appearance -> "Labeled", AnimationRate -> 3},
+    TrackedSymbols :> {t},
+    SaveDefinitions -> True
+  ]
+]
+
+
+(* ---- GMV Export: Generate frames or animated GIF ---- *)
+
+exportGMVFrames[event_Association, outputDir_String: ".",
+    nFrames_Integer: 750, opts___] := Module[
+  {stations, tArray, seismograms, normalizedSeis, distances,
+   refIdx, refDist, refSeis, frames},
+
+  PrintTemporary["Generating station network..."];
+  stations = generateEuropeanStations[2000];
+  tArray = N @ Range[$simStart, $simEnd, ($simEnd - $simStart) / nFrames];
+
+  PrintTemporary["Computing seismograms..."];
+  distances = Table[
+    geodesicDistanceDeg[
+      event["Position"][[1, 1]], event["Position"][[1, 2]],
+      stations[[i, 1]], stations[[i, 2]]
+    ],
+    {i, Length[stations]}
+  ];
+
+  seismograms = Table[
+    syntheticSeismogramGMV[distances[[i]], tArray],
+    {i, Length[stations]}
+  ];
+
+  PrintTemporary["Normalizing..."];
+  normalizedSeis = normalizePerStation[seismograms, $gmvGain];
+  refIdx = First[Ordering[Abs[distances - 55], 1]];
+  refDist = distances[[refIdx]];
+  refSeis = seismograms[[refIdx]];
+
+  PrintTemporary["Rendering frames..."];
+  frames = Table[
+    Column[{
+      gmvFrame[tArray[[i]], stations, normalizedSeis, tArray, event, refIdx],
+      gmvReferenceSeismogram[tArray, refSeis, tArray[[i]], refDist]
+    }],
+    {i, 1, Length[tArray], Max[1, Floor[Length[tArray] / nFrames]]}
+  ];
+
+  frames
+]
+
+exportGMVGIF[event_Association, filename_String: "SeismicGMV.gif",
+    nFrames_Integer: 200] := Module[{frames},
+  frames = exportGMVFrames[event, ".", nFrames];
+  Export[filename, frames,
+    "DisplayDurations" -> 0.1,
+    AnimationRepetitions -> Infinity];
+  PrintTemporary[StringForm["Saved: ``", filename]];
+  filename
+]
+
+
+(* ====================================================================== *)
+(*  FUNCTION INDEX                                                         *)
+(* ====================================================================== *)
+
+(*
+   All visualization functions defined in this library:
+
+   --- Catalog & Maps ---
+   displayCatalog[]                      Earthquake/nuclear catalog table
+   plotEventMap[]                         Global map of all events
+
+   --- PREM Model ---
+   plotPREMProfiles[]                     P, S, density vs. radius
+   plotPREMCrossSection[]                 PREM cross-section colored by Vp
+
+   --- Ray Theory ---
+   plotTravelTimeCurves[]                 Universal T(Delta) curves
+   plotRayPaths[]                         P-wave ray paths through Earth
+
+   --- Energy ---
+   displayEnergyComparison[]             Energy comparison table
+   plotEnergyBarChart[]                   Log-scale energy bar chart
+
+   --- Wavefronts ---
+   makeWavefrontFrame[epi, t, ...]       Single wavefront snapshot
+   wavefrontManipulate[]                  Interactive multi-event animation
+   wavefrontSnapshotGrid[t]              All events at time t (default 300s)
+   creteRegionalManipulate[]             Mediterranean regional view
+   flatMapManipulate[]                   Equirectangular projection animation
+
+   --- Supershear ---
+   plotMachCone[]                         Mach cone diagram (Myanmar 2025)
+
+   --- Nuclear Tests ---
+   plotYieldMbRelation[]                  mb vs. yield (Murphy 1996)
+   displayNKTestSeries[]                 NK test series table
+   plotEarthquakeVsNuclearSnapshots[]     Side-by-side earthquake vs. nuke
+
+   --- Discrimination ---
+   plotMbMsDiscrimination[]              mb-Ms discrimination plot
+   plotSourceMechanisms[]                Source radiation pattern comparison
+
+   --- Verification ---
+   displayVerificationTable[]            PREM vs. IASP91 comparison table
+   displayCityArrivalTimes[]             P-wave arrival times at major cities
+
+   --- Export ---
+   exportWavefrontGIF[eventIdx, file, tMax, dt]
+   exportComparisonGIF[file, tMax, dt]
+
+   --- GMV (Ground Motion Visualization) ---
+   generateEuropeanStations[n]           Synthetic European station network
+   syntheticSeismogramGMV[dist, tArray]  Ricker-wavelet synthetic seismogram
+   normalizePerStation[seis, gain]       Per-station normalization with gain
+   gmvFrame[t, stations, seis, ...]      Single GMV map frame
+   gmvReferenceSeismogram[tArr, ...]     Reference seismogram panel
+   gmvManipulate[event]                  Interactive GMV with seismogram
+   exportGMVFrames[event, dir, nFrames]  Generate GMV frame list
+   exportGMVGIF[event, filename, nFrames] Export animated GIF
+*)
