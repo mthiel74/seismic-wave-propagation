@@ -1616,7 +1616,11 @@ exportComparisonGIF[filename_String: "EarthquakeVsNuclear.gif",
    - Reference seismogram panel with phase labels
    - Interactive Manipulate for time exploration
 
-   Translated from Python (make_gmv_v5.py) to pure Wolfram Language.
+   The Ground Motion Visualization technique was pioneered by IRIS /
+   EarthScope (https://ds.iris.edu/ds/products/gmv/). This is a Wolfram
+   Language implementation of it: the synthetic seismograms are generated
+   from the PREM travel-time model above (build_real_gmv.wls feeds the
+   same renderer real FDSN waveforms instead).
 *)
 
 
