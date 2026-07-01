@@ -11,6 +11,8 @@ seismic network tell an underground **nuclear explosion** apart from an
 **earthquake**. Built as an educational [Wolfram Community](https://community.wolfram.com/)
 post.
 
+📄 **Read the post:** https://community.wolfram.com/groups/-/m/t/3742365
+
 ## What the project does
 
 1. **Derives the two body waves** (P and S) from the elastic wave equation,
