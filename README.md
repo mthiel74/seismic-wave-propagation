@@ -5,125 +5,128 @@
 ![Wolfram Language](https://img.shields.io/badge/Wolfram-Language-red)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 
-## Overview
+A from-scratch, reproducible account — in pure Wolfram Language — of how
+seismic waves propagate through the Earth, and how the same physics lets a
+seismic network tell an underground **nuclear explosion** apart from an
+**earthquake**. Built as an educational [Wolfram Community](https://community.wolfram.com/)
+post.
 
-This project builds a physics-based model of seismic wave propagation from first principles, applied to six major earthquakes spanning four orders of magnitude in energy — from a moderate M6.0 in the Mediterranean to the largest earthquake ever recorded (Chile 1960, M9.5). The model produces animated ground-motion visualizations showing P-waves, S-waves, and surface waves sweeping across the globe.
+## What the project does
 
-We then compare these natural events with underground nuclear explosions, showing how seismology distinguishes bombs from earthquakes — a question at the heart of nuclear test-ban verification.
+1. **Derives the two body waves** (P and S) from the elastic wave equation,
+   with the consequences that fall straight out — `vP > vS` always, and
+   `vS = 0` in the liquid outer core.
+2. **Implements the PREM velocity model** (Dziewonski & Anderson 1981) layer
+   by layer, with the inner-core boundary, core–mantle boundary and the
+   410/660 km mantle discontinuities.
+3. **Ray-traces the spherical Earth.** The ray parameter `p = r·sin(i)/v(r)`
+   is conserved; the epicentral distance Δ(p) and travel time T(p) follow as
+   integrals over the up-going path. The integrable turning-point singularity
+   is removed with the substitution `r = r_tp + ξ²`.
+4. **Validates against IASP91.** The computed direct-branch P times agree with
+   the IASP91 standard to within ~4 s across 30–90°; the S/P ratio comes out
+   at 1.84, the expected mantle value.
+5. **Animates global wavefronts** — an IRIS-style **Ground Motion
+   Visualization** of the Myanmar M7.7 sweeping across the European seismic
+   network (`docs/images/SeismicGMV.mp4`), the same event as idealized P/S/
+   Rayleigh fronts on a relief-map globe, and the **earthquake-vs-explosion**
+   comparison that shows an explosion radiating *only* a P-front.
+6. Covers **energy–magnitude scaling** (Kanamori), **supershear** Mach cones
+   (Myanmar M7.7), the **mb–yield** calibration (Murphy 1996) and the classic
+   **mb–Ms discrimination** used in nuclear test-ban verification.
+7. Produces a self-contained **Wolfram Community notebook** as the end-product
+   (`community/seismic_wave_propagation.nb`).
 
-## Events Studied
+## Events studied
 
-| Event | Magnitude | Type | Key Feature |
+| Event | Magnitude | Type | Key feature |
 |-------|-----------|------|-------------|
 | Myanmar 2025 | M7.7 | Strike-slip | Supershear rupture, Mach cone |
-| Venezuela 2026 | M7.5 | Strike-slip | Twin quakes 39s apart |
-| Crete 2025 | M6.0 | Normal | Felt across Mediterranean |
+| Venezuela 2026 | M7.5 | Strike-slip | Twin quakes 39 s apart |
+| Crete 2025 | M6.0 | Normal | Felt across the Mediterranean |
 | Tohoku 2011 | M9.1 | Megathrust | Devastating tsunami |
 | Sumatra 2004 | M9.1 | Megathrust | Indian Ocean tsunami |
-| Chile 1960 | M9.5 | Megathrust | Largest earthquake ever |
+| Chile 1960 | M9.5 | Megathrust | Largest earthquake ever recorded |
 | **DPRK 2017** | **mb 6.3** | **Nuclear test** | **250 kt, Punggye-ri** |
 
-## The Model
+## Repository layout
 
-The notebook develops the following chain of reasoning:
+The whole pipeline is pure Wolfram Language. Rendered figures and animations
+are committed under `docs/images/` so the notebook can be rebuilt without
+re-running the science.
 
-1. **Elastic Wave Equation** → Two body-wave solutions (P and S) plus surface waves (Rayleigh, Love)
-2. **PREM Velocity Model** → Seismic velocity as a function of depth, with major discontinuities (ICB, CMB, 670 km, 400 km, 220 km)
-3. **Ray Theory in Spherical Earth** → Snell's law gives the ray parameter *p = r sin(i) / v(r)*, conserved along each ray path
-4. **Travel-Time Integrals** → Numerical computation of Δ(p) and T(p) via NIntegrate, split at layer boundaries
-5. **Energy-Magnitude Scaling** → Kanamori relation log₁₀(E) = 1.5 Mw + 4.8, comparison with nuclear yield
-6. **Multi-Event Animation** → Wavefronts for all six earthquakes + nuclear test on GeoGraphics
-7. **Supershear Analysis** → Mach cone geometry for Myanmar (v_rupture ≈ 5.5 km/s > v_S)
-8. **Nuclear Test Seismology** → mb-yield relation, isotropic source model, P/S discrimination
-9. **mb-Ms Discrimination** → The classic test-ban verification technique separating explosions from earthquakes
+| path | what lives there |
+| --- | --- |
+| `community/SeismicWavePropagation.wl` | function library: PREM model, ray tracing, travel-time integrals, event catalogue, energy/discrimination, GMV engine — imported by the notebook from the same folder |
+| `community/seismic_wave_propagation.nb` / `.pdf` | the built notebook (committed output). It is **self-contained and runnable**: a Setup cell imports the `.wl`, and every figure/animation is produced by the call shown directly above it |
+| `community/build_notebook.wls` | assembles the notebook from the prose + rendered figures |
+| `wolfram/generate_figures.wls` | renders the computed figures + animations into `docs/images/` |
+| `wolfram/fetch_real_data.wls` | fetches real seismograms (FDSN) → record section + single-station trace; writes `data/` CSVs |
+| `wolfram/build_real_gmv.wls` | fetches real European station data → the real-data GMV |
+| `data/` | committed tidy CSVs: fetched waveforms (`waveforms/`, `gmv_waveforms/`), station lists, manifests |
+| `docs/images/` | rendered figures + animations referenced by the notebook and this README |
+| `docs/images/SeismicGMV.mp4` | the full-resolution IRIS-style Ground Motion Visualization (pre-computed; `gmv_myanmar.gif` is the downsampled copy embedded in the notebook) |
+| `tests/verify.wls` | scientific sanity checks (IASP91, energy ratios, mb–yield, supershear angle) |
 
-## Key Equations
+## Reproducing
 
-**Ray parameter (Snell's law in spherical coordinates):**
-```
-p = r sin(i) / v(r) = const.
-```
+```sh
+# 1. Render the computed figures + animations into docs/images/
+#    (GeoGraphics figures need internet for the relief-map tiles)
+wolframscript -file wolfram/generate_figures.wls  # loads community/SeismicWavePropagation.wl
 
-**Epicentral distance:**
-```
-Δ(p) = 2 ∫[r_tp → R] p / (r √(η² − p²)) dr
-```
+# 2. Fetch real seismograms + build the record section and single-station
+#    trace (needs internet; writes tidy CSVs to data/, figures to docs/images/)
+wolframscript -file wolfram/fetch_real_data.wls
 
-**Travel time:**
-```
-T(p) = 2 ∫[r_tp → R] η² / (r √(η² − p²)) dr
-```
+# 3. Fetch real European station data + build the real-data GMV
+#    (needs internet; caches to data/gmv_waveforms/)
+wolframscript -file wolfram/build_real_gmv.wls
 
-**Seismic energy (Kanamori 1977):**
-```
-log₁₀(E) = 1.5 Mw + 4.8    (E in Joules)
-```
+# 4. Build the community notebook (writes community/seismic_wave_propagation.nb)
+wolframscript -file community/build_notebook.wls
 
-**Nuclear yield-magnitude (Murphy 1996):**
-```
-mb = 4.45 + 0.75 log₁₀(Y)   (Y in kilotons)
-```
-
-**Supershear Mach angle:**
-```
-θ = arcsin(v_S / v_rupture) ≈ 39.5°
+# 5. Run the scientific checks
+wolframscript -file tests/verify.wls
 ```
 
-## Key Results
-
-- **Travel times** agree with IASP91 empirical tables to within a few seconds
-- **Chile M9.5** released ~10,700× more energy than the DPRK 250 kt nuclear test
-- **Tohoku M9.1** released ~2,700× more energy than the nuclear test
-- The **mb-Ms discrimination** clearly separates earthquakes from nuclear explosions
-- Nuclear tests produce **only P-wave** fronts — no S-wave or surface wave fronts — a striking visual confirmation of the source physics
+The committed `data/` CSVs mean steps 2–3 only need to run once; the notebook's
+`plotRecordSection[]`, `plotSingleStation[]` and `plotRealGMV[]` cells rebuild the
+real-data figures from those CSVs with no network.
 
 ## Requirements
 
-- **Wolfram Language** (Mathematica 13+ or Wolfram Cloud)
-- Internet connection (for `GeoGraphics` map tiles)
-
-## Usage
-
-1. Open `SeismicWavePropagation.wl` in Mathematica
-2. Evaluate all cells (Evaluation → Evaluate Notebook)
-3. Ray-tracing computation takes approximately 5–10 minutes
-4. Interactive animations are generated via `Manipulate`
-5. Animated GIFs are exported automatically
-
-## Output
-
-| Output | Description |
-|--------|-------------|
-| PREM velocity profiles | P-wave, S-wave, and density vs. radius |
-| Earth cross-section | Color-coded velocity structure |
-| Ray path diagram | P-wave rays at different incidence angles |
-| Travel-time curves | T(Δ) for P, S, Rayleigh, Love waves |
-| Event map | All 7 events on Robinson projection |
-| Energy comparison | Log-scale bar chart, earthquake vs. nuclear yield |
-| Multi-event animation | Interactive globe/flat map with event selector |
-| Mediterranean zoom | Regional view for Crete M6.0 |
-| Supershear Mach cone | Myanmar rupture visualization |
-| mb-yield plot | Nuclear test calibration curve |
-| mb-Ms discrimination | Earthquake vs. explosion populations |
-| Source mechanism diagrams | Double-couple vs. isotropic radiation |
-| Verification table | PREM model vs. IASP91 empirical times |
-| City arrival times | P-wave arrivals at 8 cities for all events |
-| Exported GIFs | Myanmar animation + earthquake vs. nuclear comparison |
+- **Wolfram Language** (Mathematica 14+ or Wolfram Engine)
+- Internet connection for `GeoGraphics` relief-map tiles (the wavefront
+  animations and the event map)
 
 ## References
 
-1. Dziewonski, A.M. & Anderson, D.L. (1981). "Preliminary Reference Earth Model." *Physics of the Earth and Planetary Interiors*, 25, 297–356.
-2. Shearer, P.M. (2009). *Introduction to Seismology*. Cambridge University Press.
-3. Kennett, B.L.N. & Engdahl, E.R. (1991). "Traveltimes for global earthquake location and phase identification." *Geophysical Journal International*, 105, 429–465.
-4. Murphy, J.R. (1996). "Types of seismic events and their source descriptions." *Monitoring a CTBT*, NATO ASI Series.
-5. Ringdal, F. (1986). "Study of magnitudes, seismicity, and earthquake detectability using a global network." *Bull. Seismol. Soc. Am.*, 76, 1641–1659.
-6. CTBTO. [Seismic Monitoring](https://www.ctbto.org/our-work/monitoring-technologies/seismic-monitoring).
-7. IRIS DMC. [Ground Motion Visualization (GMV)](https://ds.iris.edu/ds/products/gmv/).
+1. Dziewonski, A. M. & Anderson, D. L. (1981). *Preliminary Reference Earth
+   Model.* Phys. Earth Planet. Inter. 25, 297–356.
+2. Shearer, P. M. (2009). *Introduction to Seismology.* Cambridge University Press.
+3. Kennett, B. L. N. & Engdahl, E. R. (1991). Traveltimes for global earthquake
+   location and phase identification (IASP91). Geophys. J. Int. 105, 429–465.
+4. Kanamori, H. (1977). The energy release in great earthquakes. JGR 82, 2981–2987.
+5. Murphy, J. R. (1996). Types of seismic events and their source descriptions.
+   In *Monitoring a CTBT*, NATO ASI Series.
+
+## Data and imagery credits
+
+- **Seismograms** (record section, single-station trace, real-data GMV) — FDSN /
+  IRIS-EarthScope `irisws-timeseries` service; networks GE (GEOFON), II (GSN/IDA),
+  IU (GSN), MN (MedNet), CH, SL and others. Tidy CSVs are committed under `data/`.
+- **Earthquake source parameters** — USGS and GCMT catalogues (event `us7000pn9s`).
+- **Base maps** — rendered with Wolfram Language `GeoGraphics` (relief and
+  country-border styling).
+- **Reference model** — PREM (Dziewonski & Anderson 1981); reference travel times
+  IASP91 (Kennett & Engdahl 1991).
+- The **synthetic GMV** uses no real data — its station network and seismograms are
+  generated from the PREM travel-time model.
+
+The code is MIT-licensed; committed data are public-domain facts (USGS) or open
+FDSN waveforms redistributed with attribution to the network operators above.
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
-
-## Wolfram Community
-
-This project was developed for publication on the [Wolfram Community](https://community.wolfram.com/).
+MIT License — see [LICENSE](LICENSE).

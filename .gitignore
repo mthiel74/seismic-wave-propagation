@@ -5,10 +5,8 @@
 *.nb~
 FrontEnd/
 
-# Generated outputs
-*.gif
-*.mp4
-*.png
+# Build scratch (figures in docs/images/ ARE committed for reproducibility)
+community/.img-cache/
 
 # OS files
 .DS_Store
