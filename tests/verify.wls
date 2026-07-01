@@ -21,7 +21,7 @@ Print["1. Direct-branch P travel times vs IASP91 (surface focus)"];
 refP = {{30, 372.2}, {40, 457.6}, {50, 538.0}, {60, 610.6},
         {70, 676.6}, {80, 726.9}, {90, 778.7}};
 maxErr = Max[Abs[tOfDeltaP[#1] - #2] & @@@ refP];
-check["P within 8 s of IASP91 over 30-90 deg", maxErr < 8,
+check["P within 5 s of IASP91 over 30-90 deg", maxErr < 5,
       "max |Δt| = " <> ToString[Round[maxErr, 0.1]] <> " s"];
 
 Print["2. S/P travel-time ratio is mantle-like (~1.7-1.9)"];

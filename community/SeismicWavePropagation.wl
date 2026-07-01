@@ -1431,8 +1431,11 @@ PlotLabel -> Style[
    teleseismic P-wave arrivals.
 *)
 
-benchmarkDistances = {20, 30, 45, 60, 75, 90};
-iasp91Times = {289, 370, 489, 608, 720, 781};
+(* IASP91 reference P travel times (surface focus), Kennett & Engdahl 1991.
+   Same values used by tests/verify.wls, over the teleseismic direct-branch
+   range where the model is validated. *)
+benchmarkDistances = {30, 40, 50, 60, 70, 80, 90};
+iasp91Times = {372.2, 457.6, 538.0, 610.6, 676.6, 726.9, 778.7};
 
 modelTimes = Table[
   If[Min[travelTimeDataP[[All,1]]] <= d <= Max[travelTimeDataP[[All,1]]],
@@ -1541,7 +1544,7 @@ displayCityArrivalTimes[] := Grid[
    [1] Dziewonski & Anderson (1981), Phys. Earth Planet. Inter.
    [2] Shearer (2009), Introduction to Seismology, Cambridge
    [3] Kennett & Engdahl (1991), Geophys. J. Int.
-   [4] Murphy (1996), Bull. Seismol. Soc. Am.
+   [4] Murphy (1996), in Monitoring a CTBT, NATO ASI Series
    [5] Ringdal (1986), Bull. Seismol. Soc. Am.
    [6] CTBTO, Seismic Monitoring, ctbto.org
 *)
